@@ -6,9 +6,11 @@ from turtle import width
 import numpy as np
 import cv2
 import utils
+import cvyolo
 
 from defines import ROOT_DIR
-from yolo.yolo import Yolo
+# from yolo.yolo import Yolo
+
 
 EPS = 1e-9
 CIRCLE_RADIUS = 6
@@ -16,7 +18,7 @@ tracking_area_points = []
 
 
 def _remove_point(point, radius=5):
-    global tracking_arsea_points
+    global tracking_area_points
     
     x, y = point
     for index, (_x, _y) in enumerate(tracking_area_points):
@@ -27,6 +29,7 @@ def _remove_point(point, radius=5):
 
 def _add_point(point, radius=5):
     global tracking_area_points
+
     print(point)
     x, y = point
     for index, (_x, _y) in enumerate(tracking_area_points):
@@ -42,6 +45,7 @@ def mouse_callback(event, x, y, flags, param):
     point = (x, y)
     if event is cv2.EVENT_LBUTTONDOWN:
         _add_point(point, radius=CIRCLE_RADIUS)
+        
     elif event is cv2.EVENT_RBUTTONDOWN:
         _remove_point(point, radius=CIRCLE_RADIUS)
 
@@ -127,9 +131,9 @@ def show_perspective_view(image, transform_matrix, predictions):
             [x1, y2],
             [x2, y2]
         ], dtype=np.float32)
-        hcoords = utils.to_homo_coords(coords)
-        transformered_coords = utils.from_homo_coords((transform_matrix @ hcoords.T).T)
-        # transformered_coords = cv2.warpPerspective(coords, transform_matrix, (width, height))
+        # hcoords = utils.to_homo_coords(coords)
+        # transformered_coords = utils.from_homo_coords((transform_matrix @ hcoords.T).T)
+        transformered_coords = cv2.perspectiveTransform(coords[np.newaxis, ...], transform_matrix)[0]
         (x1, y1), (x2, y1), (x1, y2), (x2, y2) = transformered_coords.astype("int32")
         center = int(x1 + x2) // 2, int(y1 + y2) // 2
 
@@ -153,27 +157,36 @@ def main():
     show_perspective = False
     perspective_matrix = None
     camera = cv2.VideoCapture(str(ROOT_DIR / "data" / "video1.mp4"))
-    model = Yolo(
-        classes=str(ROOT_DIR / "yolo" / "model_data" / "coco" / "coco.names"),
-        weights=str(ROOT_DIR / "yolo" / "model_data" / "yolov3.weights")
-    )
+    # model = Yolo(
+    #     classes=str(ROOT_DIR / "yolo" / "model_data" / "coco" / "coco.names"),
+    #     weights=str(ROOT_DIR / "yolo" / "model_data" / "yolov3.weights")
+    # )
+
+    model = cvyolo.CVYolo()
 
     cv2.namedWindow('Window')
     cv2.setMouseCallback('Window', mouse_callback)
 
     frame = None
+    frame_counter = 0
     while camera.isOpened():
+        frame_counter += 1
+        if frame_counter % 5 != 0:
+            continue
+        
         success, frame = camera.read() if not stop_frame else (True, frame)
         assert success, "Some problems with frame reading"
         frame = utils.proportional_resize(frame, 900) 
         out_frame = frame.copy()
 
-        # predictions = model.detect(frame)
-        predictions = [["person", (161, 83, 175, 94), 1], ["person", (448, 140, 472, 169), 1]]
+        predictions = model.detect(frame)
+        # predictions = [["person", (161, 83, 175, 94), 1], ["person", (448, 140, 472, 169), 1]]
+        predictions = list(filter(lambda x: x[0] == "person", predictions))
 
-        for label, (x1, y1, x2, y2), score in predictions:
+        for label, (x1, y1, x2, y2), confidence in predictions:
             cv2.rectangle(out_frame, (x1, y1), (x2, y2), (0, 255, 0), 1)
             cv2.putText(out_frame, label, (x1, y1-10), cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 1)
+            print(label)
 
         pressed_key = cv2.waitKey(1)
         if pressed_key == ord("q"):
