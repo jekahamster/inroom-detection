@@ -6,6 +6,7 @@ from turtle import width
 import numpy as np
 import cv2
 import utils
+import cvzone
 import cvyolo
 
 from defines import ROOT_DIR
@@ -64,7 +65,7 @@ def draw_tracking_area(image, radius=5):
 
 
 def sort_4_points(points):
-    points_arr = np.array(points[:-1], dtype=np.float32).reshape(4, 2)
+    points_arr = np.array(points[:4], dtype=np.float32).reshape(4, 2)
     sorted_by_y = points_arr[points_arr[:, 1].argsort()]
     
     _temp = sorted_by_y[:2]
@@ -156,6 +157,7 @@ def main():
     stop_frame = False
     show_perspective = False
     perspective_matrix = None
+    fps_counter = cvzone.FPS()
     camera = cv2.VideoCapture(str(ROOT_DIR / "data" / "video1.mp4"))
     # model = Yolo(
     #     classes=str(ROOT_DIR / "yolo" / "model_data" / "coco" / "coco.names"),
@@ -168,19 +170,14 @@ def main():
     cv2.setMouseCallback('Window', mouse_callback)
 
     frame = None
-    frame_counter = 0
     while camera.isOpened():
-        frame_counter += 1
-        if frame_counter % 5 != 0:
-            continue
-        
         success, frame = camera.read() if not stop_frame else (True, frame)
         assert success, "Some problems with frame reading"
         frame = utils.proportional_resize(frame, 900) 
         out_frame = frame.copy()
 
-        predictions = model.detect(frame)
         # predictions = [["person", (161, 83, 175, 94), 1], ["person", (448, 140, 472, 169), 1]]
+        predictions = model.detect(frame)
         predictions = list(filter(lambda x: x[0] == "person", predictions))
 
         for label, (x1, y1, x2, y2), confidence in predictions:
@@ -197,10 +194,11 @@ def main():
         elif pressed_key == ord("w"):
             stop_frame = not stop_frame
         
-        draw_tracking_area(out_frame, radius=CIRCLE_RADIUS)
-
         if show_perspective:
             show_perspective_view(frame, perspective_matrix, predictions)
+
+        draw_tracking_area(out_frame, radius=CIRCLE_RADIUS)
+        fps, out_frame = fps_counter.update(out_frame, pos=(10, 20), color=(0, 255, 0), scale=1, thickness=1)
         cv2.imshow("Window", out_frame)
 
     cv2.destroyAllWindows()
