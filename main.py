@@ -8,6 +8,7 @@ import cv2
 import utils
 import cvzone
 import cvyolo
+import retina_detector
 
 from defines import ROOT_DIR
 # from yolo.yolo import Yolo
@@ -165,6 +166,7 @@ def main():
     # )
 
     model = cvyolo.CVYolo()
+    # model = retina_detector.RetinaNetDetector()
 
     cv2.namedWindow('Window')
     cv2.setMouseCallback('Window', mouse_callback)
@@ -173,6 +175,7 @@ def main():
     while camera.isOpened():
         success, frame = camera.read() if not stop_frame else (True, frame)
         assert success, "Some problems with frame reading"
+        
         frame = utils.proportional_resize(frame, 900) 
         out_frame = frame.copy()
 
