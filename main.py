@@ -1,10 +1,9 @@
 import os
 import pathlib
 import math
-from tracemalloc import stop
-from turtle import width
 import numpy as np
 import cv2
+from sklearn.compose import TransformedTargetRegressor
 import utils
 import cvzone
 import cvyolo
@@ -102,20 +101,36 @@ def get_perspective_matrix(image):
     src = np.array([
         top_left,
         top_right,
+        bottom_right,
         bottom_left,
-        bottom_right
     ], dtype=np.float32)
 
     dst = np.array([
         [0, 0],
         [max_width-1, 0],
-        [0, max_height-1],
         [max_width-1, max_height-1],
+        [0, max_height-1],
     ], dtype=np.float32)
 
     transform_matrix = cv2.getPerspectiveTransform(src, dst)
     # transformed = cv2.warpPerspective(image, transform_matrix, (max_width, max_height))
     return transform_matrix
+
+def get_human_point(top_left, top_right, boom_right, bottom_left, transform_matrix):
+    x1, y1 = top_left
+    x2, y2 = top_right
+    x3, y3 = boom_right
+    x4, y4 = bottom_left
+    # return int(x1 + x3) // 2, int(y1 + y3) // 2
+
+    box_height = np.sqrt((x1 - x4)**2 + (y1 - y4)**2)
+    
+    coords = np.array([[
+        [(x4 + x3) // 2, y4 - box_height // 4]
+    ]])
+
+    transformed_coords = cv2.perspectiveTransform(coords, transform_matrix).squeeze().astype(np.int32)
+    return transformed_coords
 
 
 def show_perspective_view(image, transform_matrix, predictions):
@@ -130,22 +145,25 @@ def show_perspective_view(image, transform_matrix, predictions):
         coords = np.array([
             [x1, y1],
             [x2, y1],
+            [x2, y2],
             [x1, y2],
-            [x2, y2]
         ], dtype=np.float32)
         # hcoords = utils.to_homo_coords(coords)
         # transformered_coords = utils.from_homo_coords((transform_matrix @ hcoords.T).T)
         transformered_coords = cv2.perspectiveTransform(coords[np.newaxis, ...], transform_matrix)[0]
-        (x1, y1), (x2, y1), (x1, y2), (x2, y2) = transformered_coords.astype("int32")
-        center = int(x1 + x2) // 2, int(y1 + y2) // 2
+        (_x1, _y1), (_x2, _y2), (_x3, _y3), (_x4, _y4) = transformered_coords.astype("int32")
+        # human_point = int(_x1 + _x3) // 2, int(_y1 + _y3) // 2
+        # human_point = get_human_point((_x1, _y1), (_x2, _y2), (_x3, _y3), (_x4, _y4))
 
-        cv2.line(transformered, (x1, y1), (x2, y1), (0, 255, 0), 1)
-        cv2.line(transformered, (x2, y1), (x2, y2), (0, 255, 0), 1)
-        cv2.line(transformered, (x2, y2), (x1, y2), (0, 255, 0), 1)
-        cv2.line(transformered, (x1, y2), (x1, y1), (0, 255, 0), 1)
+        human_point = get_human_point((x1, y1), (x2, y1), (x2, y2), (x1, y2), transform_matrix)
 
-        cv2.circle(transformered, center, 5, (255, 255, 255), 1)
-        cv2.circle(room_image, center, 5, 255, 1, cv2.LINE_AA)
+        cv2.line(transformered, (_x1, _y1), (_x2, _y2), (0, 255, 0), 1)
+        cv2.line(transformered, (_x2, _y2), (_x3, _y3), (0, 255, 0), 1)
+        cv2.line(transformered, (_x3, _y3), (_x4, _y4), (0, 255, 0), 1)
+        cv2.line(transformered, (_x4, _y4), (_x1, _y1), (0, 255, 0), 1)
+
+        cv2.circle(transformered, human_point, 5, (255, 255, 255), 1)
+        cv2.circle(room_image, human_point, 5, 255, 1, cv2.LINE_AA)
 
         cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 1)
         cv2.putText(image, label, (x1, y1-10), cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 1)
@@ -200,8 +218,8 @@ def main():
         if show_perspective:
             show_perspective_view(frame, perspective_matrix, predictions)
 
-        draw_tracking_area(out_frame, radius=CIRCLE_RADIUS)
         fps, out_frame = fps_counter.update(out_frame, pos=(10, 20), color=(0, 255, 0), scale=1, thickness=1)
+        draw_tracking_area(out_frame, radius=CIRCLE_RADIUS)
         cv2.imshow("Window", out_frame)
 
     cv2.destroyAllWindows()
