@@ -190,12 +190,20 @@ def main():
     cv2.setMouseCallback('Window', mouse_callback)
 
     frame = None
+    frame_counter = 1
     while camera.isOpened():
         success, frame = camera.read() if not stop_frame else (True, frame)
         assert success, "Some problems with frame reading"
         
         frame = utils.proportional_resize(frame, 900) 
         out_frame = frame.copy()
+
+        if frame_counter % 30 != 0:
+            frame_counter += 1
+            continue
+        else: 
+            frame_counter = 1
+            
 
         # predictions = [["person", (161, 83, 175, 94), 1], ["person", (448, 140, 472, 169), 1]]
         predictions = model.detect(frame)
