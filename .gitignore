@@ -2,3 +2,4 @@ __pycache__
 yolo/__pycache__
 yolo/model_data/yolov3.weights
 model_data/yolov3.weights
+model_data/resnet50_coco_best_v2.1.0.h5
