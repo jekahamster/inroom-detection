@@ -35,7 +35,6 @@ def main():
     model = cvyolo.CVYolo()
     # model = retina_detector.RetinaNetDetector()
 
-
     frame = None
     frame_counter = 1
     main_window = MainWindow()
@@ -48,7 +47,7 @@ def main():
         frame = utils.proportional_resize(frame, 900) 
         out_frame = frame.copy()
 
-        if frame_counter % 30 != 0:
+        if frame_counter % 1 != 0:
             frame_counter += 1
             continue
         else: 
@@ -73,12 +72,18 @@ def main():
         elif pressed_key == ord("w"):
             stop_frame = not stop_frame
         
+        elif pressed_key == ord("1"):
+            main_window.prev_area()
+        
+        elif pressed_key == ord("2"):
+            main_window.next_area()
+
         if show_perspective:
             # show_perspective_view(frame, perspective_matrix, predictions, main_window.tracking_area_points)
             perspective_window.show(predictions=predictions)
 
         fps, out_frame = fps_counter.update(out_frame, pos=(10, 20), color=(0, 255, 0), scale=1, thickness=1)
-        main_window.show(out_frame)
+        main_window.show(out_frame, predictions=predictions)
 
     cv2.destroyAllWindows()
 
