@@ -30,7 +30,6 @@ def _add_point(point, tracking_area_points, radius=5):
 
 def mw_mouse_callback(event, x, y, flags, param):
     tracking_area_points = param
-    print("click")
     
     point = (x, y)
     if event is cv2.EVENT_LBUTTONDOWN:
@@ -63,8 +62,7 @@ class MainWindow:
             cv2.circle(image, center=point, radius=radius, color=(0, 255, 0), thickness=2)
 
     def get_perspective_window(self):
-        points = points[:4]
-        top_left, top_right, bottom_left, bottom_right = utils.sort_4_points(points)
+        top_left, top_right, bottom_left, bottom_right = utils.sort_4_points(self.tracking_area_points)
         max_width, max_height, *_ = utils.rect_sizes(top_left, top_right, bottom_left, bottom_right)
 
         src = np.array([
